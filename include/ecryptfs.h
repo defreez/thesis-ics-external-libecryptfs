@@ -33,7 +33,6 @@
 #include <termios.h>
 #ifndef S_SPLINT_S
 #include <stdio.h>
-#include <syslog.h>
 #endif
 #include <pthread.h>
 #include <unistd.h>
@@ -141,9 +140,6 @@
 #define ECRYPTFS_TAG_65_PACKET 0x41
 #define ECRYPTFS_TAG_66_PACKET 0x42
 #define ECRYPTFS_TAG_67_PACKET 0x43
-
-#define ecryptfs_syslog(type, fmt, arg...) \
-	syslog(type, "%s: " fmt, __FUNCTION__, ## arg);
 
 #define ECRYPTFS_MAX_NUM_CIPHERS 64
 #define ECRYPTFS_ECHO_ON 1
