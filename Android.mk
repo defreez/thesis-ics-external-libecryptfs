@@ -15,7 +15,9 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_SRC_FILES := \
 	libecryptfs/main.c \
-	libecryptfs/key_management.c
+	libecryptfs/key_management.c \
+	libecryptfs/messaging.c \
+	libecryptfs/miscdev.c
 
 LOCAL_MODULE := libecryptfs
 LOCAL_MODULE_TAGS := optional

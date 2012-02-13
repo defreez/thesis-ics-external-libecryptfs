@@ -35,7 +35,6 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include "config.h"
 #include "../include/ecryptfs.h"
 
 int ecryptfs_send_miscdev(struct ecryptfs_miscdev_ctx *miscdev_ctx,
@@ -201,79 +200,4 @@ out:
 void ecryptfs_release_miscdev(struct ecryptfs_miscdev_ctx *miscdev_ctx)
 {
 	close(miscdev_ctx->miscdev_fd);
-}
-
-int init_miscdev_daemon(void)
-{
-	return 0;
-}
-
-int ecryptfs_run_miscdev_daemon(struct ecryptfs_miscdev_ctx *miscdev_ctx)
-{
-	struct ecryptfs_message *emsg = NULL;
-	struct ecryptfs_ctx ctx;
-	uint32_t msg_seq;
-	uint8_t msg_type;
-	int error_count = 0;
-	int rc;
-
-	memset(&ctx, 0, sizeof(struct ecryptfs_ctx));
-	rc = ecryptfs_register_key_modules(&ctx);
-	if (rc) {
-		syslog(LOG_ERR, "Failed to register key modules; rc = [%d]\n",
-		       rc);
-		goto out;
-	}
-receive:
-	rc = ecryptfs_recv_miscdev(miscdev_ctx, &emsg, &msg_seq, &msg_type);
-	if (rc < 0) {
-		syslog(LOG_ERR, "Error while receiving eCryptfs netlink "
-		       "message; errno = [%d]; errno msg = [%m]\n", errno);
-		error_count++;
-		if (error_count > ECRYPTFS_NETLINK_ERROR_COUNT_THRESHOLD) {
-			syslog(LOG_ERR, "Netlink error threshold exceeded "
-			       "maximum of [%d]; terminating daemon\n",
-			       ECRYPTFS_NETLINK_ERROR_COUNT_THRESHOLD);
-			rc = -EIO;
-			goto out;
-		}
-	} else if (msg_type == ECRYPTFS_MSG_HELO) {
-		syslog(LOG_DEBUG, "Received eCryptfs netlink HELO "
-		       "message from the kernel\n");
-		error_count = 0;
-	} else if (msg_type == ECRYPTFS_MSG_QUIT) {
-		syslog(LOG_DEBUG, "Received eCryptfs netlink QUIT "
-		       "message from the kernel\n");
-		free(emsg);
-		rc = 0;
-		goto out;
-	} else if (msg_type == ECRYPTFS_MSG_REQUEST) {
-		struct ecryptfs_message *reply = NULL;
-
-		rc = parse_packet(&ctx, emsg, &reply);
-		if (rc) {
-			syslog(LOG_ERR, "Failed to miscdevess "
-			       "netlink packet\n");
-			free(reply);
-			goto free_emsg;
-		}
-		reply->index = emsg->index;
-		rc = ecryptfs_send_miscdev(miscdev_ctx, reply,
-					   ECRYPTFS_MSG_RESPONSE, 0, msg_seq);
-		if (rc < 0) {
-			syslog(LOG_ERR, "Failed to send netlink "
-			       "message in response to kernel "
-			       "request\n");
-		}
-		free(reply);
-		error_count = 0;
-	} else
-		syslog(LOG_DEBUG, "Received unrecognized netlink "
-		       "message type [%d]\n", msg_type);
-free_emsg:
-	free(emsg);
-	goto receive;
-out:
-	ecryptfs_free_key_mod_list(&ctx);
-	return rc;
 }
